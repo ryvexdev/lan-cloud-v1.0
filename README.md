@@ -1097,29 +1097,29 @@ mengetahui root cause-nya.
 # 📊 Current Validation Status
 
 LAN CLOUD v1.0 telah melalui live verification untuk scope berikut:
-
-  Component                     Status
-  ---------------------------- --------
-  Device registration             ✅
-  Encrypted client vault          ✅
-  Authentication                  ✅
-  Upload                          ✅
-  File listing                    ✅
-  Download                        ✅
-  SHA-256 integrity               ✅
-  Collision protection            ✅
-  Relative path preservation      ✅
-  Sync/update                     ✅
-  Watch mode                      ✅
-  Database integrity              ✅
-  Backup creation                 ✅
-  Backup integrity                ✅
-  Backup ↔ active DB count        ✅
-  Restore simulation              ✅
-  DB ↔ storage consistency        ✅
-  Regression tests              ✅ 7/7
-  Python compile check            ✅
-
+```
+  Component                       Status
+  ----------------------------   --------
+  Device registration               ✅
+  Encrypted client vault            ✅
+  Authentication                    ✅
+  Upload                            ✅
+  File listing                      ✅
+  Download                          ✅
+  SHA-256 integrity                 ✅
+  Collision protection              ✅
+  Relative path preservation        ✅
+  Sync/update                       ✅
+  Watch mode                        ✅
+  Database integrity                ✅
+  Backup creation                   ✅
+  Backup integrity                  ✅
+  Backup ↔ active DB count         ✅
+  Restore simulation                ✅
+  DB ↔ storage consistency         ✅
+  Regression tests                  ✅ 7/7
+  Python compile check              ✅
+```
 ### Validation baseline
 
 Pada live test terakhir:
