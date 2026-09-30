@@ -881,8 +881,6 @@ git clone https://github.com/ryvexdev/lan-cloud-v1.0.git
 cd lan-cloud-v1.0
 ```
 
-Ganti `<USERNAME>` dengan username/organisasi repository resmi.
-
 ## Buat Branch
 
 ```bash
