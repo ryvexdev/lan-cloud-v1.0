@@ -1,0 +1,17 @@
+from datetime import datetime, timezone
+import uuid
+from fastapi import APIRouter, Form, HTTPException
+from .database import connect
+from .auth import new_token, token_hash, authenticate
+router=APIRouter()
+@router.post("")
+def register(device_name: str=Form(...)):
+    name=device_name.strip()[:120]
+    if not name: raise HTTPException(400,"Device name is required")
+    did=str(uuid.uuid4()); token=new_token(); now=datetime.now(timezone.utc).isoformat()
+    with connect() as c:
+        c.execute("INSERT INTO devices VALUES(?,?,?,?,?)",(did,name,token_hash(token),now,now))
+    return {"device_id":did,"device_name":name,"token":token,"created_at":now}
+@router.get("")
+def list_devices(dev=__import__("fastapi").Depends(authenticate)):
+    return {"devices":[{k: dev[k] for k in ("device_id", "device_name")}]}

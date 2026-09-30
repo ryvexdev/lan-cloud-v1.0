@@ -1,0 +1,67 @@
+import os, tempfile, hashlib, re
+from datetime import datetime, timezone
+
+MAX_UPLOAD_BYTES = int(os.environ.get("LAN_CLOUD_MAX_UPLOAD_BYTES", 1073741824))
+from pathlib import Path
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, Query
+from fastapi.responses import FileResponse
+from .auth import authenticate
+from .database import connect
+from .storage import safe_rel,target_for,sha256_file
+router=APIRouter()
+@router.post("/upload")
+async def upload(file: UploadFile=File(...), relative_path: str=Form(...), size: int=Form(...), sha256: str=Form(...), mtime: float=Form(0), dev=Depends(authenticate)):
+    if MAX_UPLOAD_BYTES <= 0:
+        raise HTTPException(503, "Upload limit is not configured")
+    if size < 0:
+        raise HTTPException(422, "Invalid file size")
+    if size > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "File exceeds upload size limit")
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", sha256):
+        raise HTTPException(422, "Invalid SHA-256")
+
+    rel=safe_rel(relative_path); target=target_for(dev["device_id"],rel); target.parent.mkdir(parents=True,exist_ok=True)
+    fd,tmpname=tempfile.mkstemp(prefix=target.name+".",suffix=".uploading",dir=target.parent); actual=0
+    h=hashlib.sha256()
+    try:
+        with os.fdopen(fd,"wb") as out:
+            while chunk:=await file.read(1024*1024):
+                actual += len(chunk)
+                if actual > MAX_UPLOAD_BYTES:
+                    raise HTTPException(413, "File exceeds upload size limit")
+                out.write(chunk); h.update(chunk)
+        digest=h.hexdigest()
+        if actual!=size or digest.lower()!=sha256.lower():
+            raise HTTPException(422,"File integrity validation failed")
+        os.replace(tmpname,target)
+        now=datetime.now(timezone.utc).isoformat(); storage_path=target.relative_to(target_for(dev["device_id"],Path("."))).as_posix()
+        with connect() as c:
+            c.execute("""INSERT INTO files(device_id,rel_path,size,sha256,storage_path,mtime,uploaded_at) VALUES(?,?,?,?,?,?,?)
+            ON CONFLICT(device_id,rel_path) DO UPDATE SET size=excluded.size,sha256=excluded.sha256,storage_path=excluded.storage_path,mtime=excluded.mtime,uploaded_at=excluded.uploaded_at""",
+            (dev["device_id"],rel.as_posix(),actual,digest,storage_path,mtime,now))
+        return {"status":"uploaded","path":rel.as_posix(),"size":actual,"sha256":digest}
+    finally:
+        try: os.unlink(tmpname)
+        except FileNotFoundError: pass
+@router.get("/files")
+def list_files(dev=Depends(authenticate)):
+    with connect() as c: rows=c.execute("SELECT rel_path,size,sha256,mtime,uploaded_at FROM files WHERE device_id=? ORDER BY rel_path",(dev["device_id"],)).fetchall()
+    return {"files":[dict(r) for r in rows]}
+@router.get("/download")
+def download(relative_path: str=Query(...), dev=Depends(authenticate)):
+    rel=safe_rel(relative_path)
+    with connect() as c: row=c.execute("SELECT storage_path FROM files WHERE device_id=? AND rel_path=?",(dev["device_id"],rel.as_posix())).fetchone()
+    if not row: raise HTTPException(404,"File not found")
+    path=target_for(dev["device_id"],Path(row["storage_path"]))
+    if not path.is_file(): raise HTTPException(404,"File not found")
+    return FileResponse(path,filename=rel.name)
+@router.delete("/files")
+def delete_file(relative_path: str=Query(...), dev=Depends(authenticate)):
+    rel=safe_rel(relative_path)
+    with connect() as c: row=c.execute("SELECT storage_path FROM files WHERE device_id=? AND rel_path=?",(dev["device_id"],rel.as_posix())).fetchone()
+    if not row: raise HTTPException(404,"File not found")
+    path=target_for(dev["device_id"],Path(row["storage_path"]))
+    try: path.unlink()
+    except FileNotFoundError: pass
+    with connect() as c: c.execute("DELETE FROM files WHERE device_id=? AND rel_path=?",(dev["device_id"],rel.as_posix()))
+    return {"status":"deleted","path":rel.as_posix()}
