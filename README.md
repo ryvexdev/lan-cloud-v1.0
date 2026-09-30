@@ -125,10 +125,6 @@ LAN CLOUD dirancang untuk dijalankan sebagai **private cloud di jaringan
 LAN/Wi-Fi sendiri**. Tutorial ini mengasumsikan backend menggunakan Ubuntu/Linux
 dan client menggunakan Python.
 
-> **Catatan:** URL repository di bawah memakai placeholder. Ganti
-> `<USERNAME>` dengan username/organisasi GitHub pemilik repository sebelum
-> menjalankan `git clone`.
-
 ## 1. Persiapan Ubuntu/Linux
 
 ```bash
